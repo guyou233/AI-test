@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tank Battle</title>
+<style>
+  body { margin: 0; background: #111; color: #fff; font-family: sans-serif; }
+  canvas { display: block; margin: 0 auto; background: #222; }
+  #info { text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+<canvas id="game" width="600" height="400"></canvas>
+<div id="info">Player1: WASD to move, F to shoot. Player2: Arrow keys to move, L to shoot.</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const keys = {};
+
+window.addEventListener('keydown', (e) => keys[e.key] = true);
+window.addEventListener('keyup', (e) => delete keys[e.key]);
+
+function Tank(x, y, color, controls) {
+  this.x = x; this.y = y; this.dir = 0; this.color = color;
+  this.controls = controls; // {up,down,left,right,fire}
+  this.bullets = [];
+  this.update = function() {
+    if (keys[this.controls.left]) this.dir -= 0.05;
+    if (keys[this.controls.right]) this.dir += 0.05;
+    const speed = 2;
+    if (keys[this.controls.up]) { this.x += Math.cos(this.dir) * speed; this.y += Math.sin(this.dir) * speed; }
+    if (keys[this.controls.down]) { this.x -= Math.cos(this.dir) * speed; this.y -= Math.sin(this.dir) * speed; }
+    this.x = Math.max(0, Math.min(canvas.width, this.x));
+    this.y = Math.max(0, Math.min(canvas.height, this.y));
+    if (keys[this.controls.fire]) this.fire();
+    this.bullets.forEach(b => b.update());
+    this.bullets = this.bullets.filter(b => !b.dead);
+  };
+  this.fire = function() {
+    if (!this.lastFire || Date.now() - this.lastFire > 400) {
+      this.lastFire = Date.now();
+      const b = new Bullet(this.x, this.y, this.dir, this.color);
+      this.bullets.push(b);
+    }
+  };
+  this.draw = function() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.dir);
+    ctx.fillStyle = this.color;
+    ctx.fillRect(-10, -7, 20, 14);
+    ctx.fillRect(0, -3, 15, 6);
+    ctx.restore();
+    this.bullets.forEach(b => b.draw());
+  };
+}
+
+function Bullet(x, y, dir, color) {
+  this.x = x; this.y = y; this.dir = dir; this.color = color; this.dead = false;
+  this.update = function() {
+    this.x += Math.cos(this.dir) * 4;
+    this.y += Math.sin(this.dir) * 4;
+    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.dead = true;
+  };
+  this.draw = function() {
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 3, 0, Math.PI*2);
+    ctx.fill();
+  };
+}
+
+const p1 = new Tank(100, 200, '#0f0', {up:'w',down:'s',left:'a',right:'d',fire:'f'});
+const p2 = new Tank(500, 200, '#f00', {up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',fire:'l'});
+
+function checkHit(bullet, tank) {
+  const dx = bullet.x - tank.x;
+  const dy = bullet.y - tank.y;
+  return Math.sqrt(dx*dx + dy*dy) < 15;
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  p1.update();
+  p2.update();
+  p1.bullets.forEach(b => { if (checkHit(b, p2)) { b.dead = true; alert('Player 1 Wins!'); location.reload(); }});
+  p2.bullets.forEach(b => { if (checkHit(b, p1)) { b.dead = true; alert('Player 2 Wins!'); location.reload(); }});
+  p1.draw();
+  p2.draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
